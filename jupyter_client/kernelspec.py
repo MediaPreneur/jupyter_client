@@ -50,7 +50,7 @@ class KernelSpec(HasTraits):
         return cls(resource_dir=resource_dir, **kernel_dict)
 
     def to_dict(self):
-        d = dict(
+        return dict(
             argv=self.argv,
             env=self.env,
             display_name=self.display_name,
@@ -58,8 +58,6 @@ class KernelSpec(HasTraits):
             interrupt_mode=self.interrupt_mode,
             metadata=self.metadata,
         )
-
-        return d
 
     def to_json(self):
         """Serialise this kernelspec to a JSON object.
@@ -104,9 +102,10 @@ def _list_kernels_in(dir):
         key = f.lower()
         if not _is_valid_kernel_name(key):
             warnings.warn(
-                "Invalid kernelspec directory name (%s): %s" % (_kernel_name_description, path),
+                f"Invalid kernelspec directory name ({_kernel_name_description}): {path}",
                 stacklevel=3,
             )
+
         kernels[key] = path
     return kernels
 
@@ -116,7 +115,7 @@ class NoSuchKernel(KeyError):
         self.name = name
 
     def __str__(self):
-        return "No such kernel named {}".format(self.name)
+        return f"No such kernel named {self.name}"
 
 
 class KernelSpecManager(LoggingConfigurable):

@@ -43,10 +43,7 @@ class LocalProvisioner(KernelProvisionerBase):
 
     async def poll(self) -> Optional[int]:
 
-        ret = 0
-        if self.process:
-            ret = self.process.poll()
-        return ret
+        return self.process.poll() if self.process else 0
 
     async def wait(self) -> Optional[int]:
         ret = 0
@@ -157,9 +154,7 @@ class LocalProvisioner(KernelProvisionerBase):
         Returns the updated kwargs.
         """
 
-        # This should be considered temporary until a better division of labor can be defined.
-        km = self.parent
-        if km:
+        if km := self.parent:
             if km.transport == 'tcp' and not is_local_ip(km.ip):
                 raise RuntimeError(
                     "Can only launch a kernel on a local interface. "

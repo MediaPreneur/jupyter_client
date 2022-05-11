@@ -20,23 +20,14 @@ from .consoleapp import JupyterConsoleApp
 
 OUTPUT_TIMEOUT = 10
 
-# copy flags from mixin:
-flags = dict(base_flags)
-# start with mixin frontend flags:
-frontend_flags = dict(app_flags)
-# update full dict with frontend flags:
-flags.update(frontend_flags)
-
-# copy flags from mixin
-aliases = dict(base_aliases)
 # start with mixin frontend flags
 frontend_aliases = dict(app_aliases)
-# load updated frontend flags into full dict
-aliases.update(frontend_aliases)
-
+aliases = dict(base_aliases) | frontend_aliases
 # get flags&aliases into sets, and remove a couple that
 # shouldn't be scrubbed from backend flags:
 frontend_aliases = set(frontend_aliases.keys())
+frontend_flags = dict(app_flags)
+flags = dict(base_flags) | frontend_flags
 frontend_flags = set(frontend_flags.keys())
 
 
@@ -101,7 +92,7 @@ class RunApp(JupyterApp, JupyterConsoleApp):
         super().start()
         if self.filenames_to_run:
             for filename in self.filenames_to_run:
-                self.log.debug("jupyter run: executing `%s`" % filename)
+                self.log.debug(f"jupyter run: executing `{filename}`")
                 with open(filename) as fp:
                     code = fp.read()
                     reply = self.kernel_client.execute_interactive(code, timeout=OUTPUT_TIMEOUT)

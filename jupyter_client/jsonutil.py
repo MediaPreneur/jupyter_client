@@ -44,10 +44,11 @@ def _ensure_tzinfo(dt: datetime) -> datetime:
     if not dt.tzinfo:
         # No more naïve datetime objects!
         warnings.warn(
-            "Interpreting naive datetime as local %s. Please add timezone info to timestamps." % dt,
+            f"Interpreting naive datetime as local {dt}. Please add timezone info to timestamps.",
             DeprecationWarning,
             stacklevel=4,
         )
+
         dt = dt.replace(tzinfo=tzlocal())
     return dt
 
@@ -61,8 +62,7 @@ def parse_date(s: Optional[str]) -> Optional[Union[str, datetime]]:
     """
     if s is None:
         return s
-    m = ISO8601_PAT.match(s)
-    if m:
+    if m := ISO8601_PAT.match(s):
         dt = _dateutil_parse(s)
         return _ensure_tzinfo(dt)
     return s
@@ -71,9 +71,7 @@ def parse_date(s: Optional[str]) -> Optional[Union[str, datetime]]:
 def extract_dates(obj):
     """extract ISO8601 dates from unpacked JSON"""
     if isinstance(obj, dict):
-        new_obj = {}  # don't clobber
-        for k, v in obj.items():
-            new_obj[k] = extract_dates(v)
+        new_obj = {k: extract_dates(v) for k, v in obj.items()}
         obj = new_obj
     elif isinstance(obj, (list, tuple)):
         obj = [extract_dates(o) for o in obj]
@@ -148,10 +146,7 @@ def json_clean(obj):
 
     if isinstance(obj, numbers.Real):
         # cast out-of-range floats to their reprs
-        if math.isnan(obj) or math.isinf(obj):
-            return repr(obj)
-        return float(obj)
-
+        return repr(obj) if math.isnan(obj) or math.isinf(obj) else float(obj)
     if isinstance(obj, atomic_ok):
         return obj
 
@@ -179,11 +174,7 @@ def json_clean(obj):
                 'dict cannot be safely converted to JSON: '
                 'key collision would lead to dropped values'
             )
-        # If all OK, proceed by making the new dict that will be json-safe
-        out = {}
-        for k, v in obj.items():
-            out[str(k)] = json_clean(v)
-        return out
+        return {str(k): json_clean(v) for k, v in obj.items()}
 
     if isinstance(obj, datetime):
         return obj.strftime(ISO8601)

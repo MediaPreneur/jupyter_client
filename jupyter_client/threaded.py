@@ -164,7 +164,7 @@ class ThreadedZMQSocketChannel(object):
         # gets to perform at least one full poll.
         stop_time = time.time() + timeout
         assert self.ioloop is not None
-        for i in range(2):
+        for _ in range(2):
             self._flushed = False
             self.ioloop.add_callback(self._flush)
             while not self._flushed and time.time() < stop_time:
@@ -294,10 +294,4 @@ class ThreadedKernelClient(KernelClient):
 
     def is_alive(self) -> bool:
         """Is the kernel process still running?"""
-        if self._hb_channel is not None:
-            # We don't have access to the KernelManager,
-            # so we use the heartbeat.
-            return self._hb_channel.is_beating()
-        # no heartbeat and not local, we can't tell if it's running,
-        # so naively return True
-        return True
+        return self._hb_channel.is_beating() if self._hb_channel is not None else True
