@@ -117,7 +117,7 @@ def write_connection_file(
         + int(hb_port <= 0)
     )
     if transport == "tcp":
-        for i in range(ports_needed):
+        for _ in range(ports_needed):
             sock = socket.socket()
             # struct.pack('ii', (0,0)) is 8 null bytes
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, b"\0" * 8)
@@ -128,12 +128,10 @@ def write_connection_file(
             sock.close()
             ports.append(port)
     else:
-        N = 1
-        for i in range(ports_needed):
-            while os.path.exists("%s-%s" % (ip, str(N))):
+        for N, _ in enumerate(range(ports_needed), start=1):
+            while os.path.exists(f"{ip}-{str(N)}"):
                 N += 1
             ports.append(N)
-            N += 1
     if shell_port <= 0:
         shell_port = ports.pop(0)
     if iopub_port <= 0:
@@ -165,20 +163,14 @@ def write_connection_file(
         f.write(json.dumps(cfg, indent=2))
 
     if hasattr(stat, "S_ISVTX"):
-        # set the sticky bit on the parent directory of the file
-        # to ensure only owner can remove it
-        runtime_dir = os.path.dirname(fname)
-        if runtime_dir:
+        if runtime_dir := os.path.dirname(fname):
             permissions = os.stat(runtime_dir).st_mode
             new_permissions = permissions | stat.S_ISVTX
             if new_permissions != permissions:
                 try:
                     os.chmod(runtime_dir, new_permissions)
                 except OSError as e:
-                    if e.errno == errno.EPERM:
-                        # suppress permission errors setting sticky bit on runtime_dir,
-                        # which we may not own.
-                        pass
+                    pass
     return fname, cfg
 
 
@@ -208,7 +200,7 @@ def find_connection_file(
     str : The absolute path of the connection file.
     """
     if profile is not None:
-        warnings.warn("Jupyter has no profiles. profile=%s has been ignored." % profile)
+        warnings.warn(f"Jupyter has no profiles. profile={profile} has been ignored.")
     if path is None:
         path = [".", jupyter_runtime_dir()]
     if isinstance(path, str):
@@ -222,13 +214,7 @@ def find_connection_file(
 
     # not found by full name
 
-    if "*" in filename:
-        # given as a glob already
-        pat = filename
-    else:
-        # accept any substring match
-        pat = "*%s*" % filename
-
+    pat = filename if "*" in filename else f"*{filename}*"
     matches = []
     for p in path:
         matches.extend(glob.glob(os.path.join(p, pat)))
@@ -296,7 +282,7 @@ def tunnel_to_kernel(
     if tunnel.try_passwordless_ssh(sshserver, sshkey):
         password: Union[bool, str] = False
     else:
-        password = getpass("SSH Password for %s: " % sshserver)
+        password = getpass(f"SSH Password for {sshserver}: ")
 
     for lp, rp in zip(lports, rports):
         tunnel.ssh_tunnel(lp, rp, sshserver, remote_ip, sshkey, password)
@@ -316,7 +302,10 @@ channel_socket_types = {
     "control": zmq.DEALER,
 }
 
-port_names = ["%s_port" % channel for channel in ("shell", "stdin", "iopub", "hb", "control")]
+port_names = [
+    f"{channel}_port"
+    for channel in ("shell", "stdin", "iopub", "hb", "control")
+]
 
 
 class ConnectionFileMixin(LoggingConfigurable):
@@ -352,13 +341,12 @@ class ConnectionFileMixin(LoggingConfigurable):
     )
 
     def _ip_default(self):
-        if self.transport == "ipc":
-            if self.connection_file:
-                return os.path.splitext(self.connection_file)[0] + "-ipc"
-            else:
-                return "kernel-ipc"
-        else:
+        if self.transport != "ipc":
             return localhost()
+        if self.connection_file:
+            return f"{os.path.splitext(self.connection_file)[0]}-ipc"
+        else:
+            return "kernel-ipc"
 
     @observe("ip")
     def _ip_changed(self, change):
@@ -422,12 +410,11 @@ class ConnectionFileMixin(LoggingConfigurable):
             info["session"] = self.session.clone()
         else:
             # add session info
-            info.update(
-                dict(
-                    signature_scheme=self.session.signature_scheme,
-                    key=self.session.key,
-                )
+            info |= dict(
+                signature_scheme=self.session.signature_scheme,
+                key=self.session.key,
             )
+
         return info
 
     # factory for blocking clients
@@ -475,10 +462,9 @@ class ConnectionFileMixin(LoggingConfigurable):
         if self._random_port_names is not None:
             return
 
-        self._random_port_names = []
-        for name in port_names:
-            if getattr(self, name) <= 0:
-                self._random_port_names.append(name)
+        self._random_port_names = [
+            name for name in port_names if getattr(self, name) <= 0
+        ]
 
     def cleanup_random_ports(self) -> None:
         """Forgets randomly assigned port numbers and cleans up the connection file.
@@ -588,12 +574,12 @@ class ConnectionFileMixin(LoggingConfigurable):
         """Make a ZeroMQ URL for a given channel."""
         transport = self.transport
         ip = self.ip
-        port = getattr(self, "%s_port" % channel)
+        port = getattr(self, f"{channel}_port")
 
         if transport == "tcp":
             return "tcp://%s:%i" % (ip, port)
         else:
-            return "%s://%s-%s" % (transport, ip, port)
+            return f"{transport}://{ip}-{port}"
 
     def _create_connected_socket(
         self, channel: str, identity: Optional[bytes] = None
@@ -601,7 +587,7 @@ class ConnectionFileMixin(LoggingConfigurable):
         """Create a zmq Socket and connect it to the kernel."""
         url = self._make_url(channel)
         socket_type = channel_socket_types[channel]
-        self.log.debug("Connecting to: %s" % url)
+        self.log.debug(f"Connecting to: {url}")
         sock = self.context.socket(socket_type)
         # set linger to 1s to prevent hangs at exit
         sock.linger = 1000

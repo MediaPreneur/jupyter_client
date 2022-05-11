@@ -43,7 +43,7 @@ def select_random_ports(n):
     """Select and return n random ports that are available."""
     ports = []
     sockets = []
-    for i in range(n):
+    for _ in range(n):
         sock = socket.socket()
         sock.bind(("", 0))
         ports.append(sock.getsockname()[1])
@@ -68,10 +68,7 @@ def try_passwordless_ssh(server, keyfile, paramiko=None):
     """
     if paramiko is None:
         paramiko = sys.platform == "win32"
-    if not paramiko:
-        f = _try_passwordless_openssh
-    else:
-        f = _try_passwordless_paramiko
+    f = _try_passwordless_paramiko if paramiko else _try_passwordless_openssh
     return f(server, keyfile)
 
 
@@ -79,9 +76,9 @@ def _try_passwordless_openssh(server, keyfile):
     """Try passwordless login with shell ssh command."""
     if pexpect is None:
         raise ImportError("pexpect unavailable, use paramiko")
-    cmd = "ssh -f " + server
+    cmd = f"ssh -f {server}"
     if keyfile:
-        cmd += " -i " + keyfile
+        cmd += f" -i {keyfile}"
     cmd += " exit"
 
     # pop SSH_ASKPASS from env
@@ -106,11 +103,12 @@ def _try_passwordless_openssh(server, keyfile):
 def _try_passwordless_paramiko(server, keyfile):
     """Try passwordless login with paramiko."""
     if paramiko is None:
-        msg = "Paramiko unavailable, "
-        if sys.platform == "win32":
-            msg += "Paramiko is required for ssh tunneled connections on Windows."
-        else:
-            msg += "use OpenSSH."
+        msg = "Paramiko unavailable, " + (
+            "Paramiko is required for ssh tunneled connections on Windows."
+            if sys.platform == "win32"
+            else "use OpenSSH."
+        )
+
         raise ImportError(msg)
     username, server, port = _split_server(server)
     client = paramiko.SSHClient()
@@ -164,11 +162,7 @@ def open_tunnel(addr, server, keyfile=None, password=None, paramiko=None, timeou
     rport = int(rport)
     if paramiko is None:
         paramiko = sys.platform == "win32"
-    if paramiko:
-        tunnelf = paramiko_tunnel
-    else:
-        tunnelf = openssh_tunnel
-
+    tunnelf = paramiko_tunnel if paramiko else openssh_tunnel
     tunnel = tunnelf(
         lport,
         rport,
@@ -223,13 +217,13 @@ def openssh_tunnel(
         raise ImportError("pexpect unavailable, use paramiko_tunnel")
     ssh = "ssh "
     if keyfile:
-        ssh += "-i " + keyfile
+        ssh += f"-i {keyfile}"
 
     if ":" in server:
         server, port = server.split(":")
-        ssh += " -p %s" % port
+        ssh += f" -p {port}"
 
-    cmd = "%s -O check %s" % (ssh, server)
+    cmd = f"{ssh} -O check {server}"
     (output, exitstatus) = pexpect.run(cmd, withexitstatus=True)
     if not exitstatus:
         pid = int(output[output.find(b"(pid=") + 5 : output.find(b")")])  # noqa
@@ -241,9 +235,9 @@ def openssh_tunnel(
             server,
         )
         (output, exitstatus) = pexpect.run(cmd, withexitstatus=True)
-        if not exitstatus:
-            atexit.register(_stop_tunnel, cmd.replace("-O forward", "-O cancel", 1))
-            return pid
+    if not exitstatus:
+        atexit.register(_stop_tunnel, cmd.replace("-O forward", "-O cancel", 1))
+        return pid
     cmd = "%s -f -S none -L 127.0.0.1:%i:%s:%i %s sleep %i" % (
         ssh,
         lport,
@@ -268,13 +262,12 @@ def openssh_tunnel(
         except pexpect.TIMEOUT:
             continue
         except pexpect.EOF as e:
-            if tunnel.exitstatus:
-                print(tunnel.exitstatus)
-                print(tunnel.before)
-                print(tunnel.after)
-                raise RuntimeError("tunnel '%s' failed to start" % (cmd)) from e
-            else:
+            if not tunnel.exitstatus:
                 return tunnel.pid
+            print(tunnel.exitstatus)
+            print(tunnel.before)
+            print(tunnel.after)
+            raise RuntimeError("tunnel '%s' failed to start" % (cmd)) from e
         else:
             if failed:
                 print("Password rejected, try again")
@@ -347,9 +340,8 @@ def paramiko_tunnel(
     if paramiko is None:
         raise ImportError("Paramiko not available")
 
-    if password is None:
-        if not _try_passwordless_paramiko(server, keyfile):
-            password = getpass("%s's password: " % (server))
+    if password is None and not _try_passwordless_paramiko(server, keyfile):
+        password = getpass("%s's password: " % (server))
 
     p = Process(
         target=_paramiko_tunnel,
@@ -398,16 +390,11 @@ def _paramiko_tunnel(lport, rport, server, remoteip, keyfile=None, password=None
         print("SIGINT: Port forwarding stopped cleanly")
         sys.exit(0)
     except Exception as e:
-        print("Port forwarding stopped uncleanly: %s" % e)
+        print(f"Port forwarding stopped uncleanly: {e}")
         sys.exit(255)
 
 
-if sys.platform == "win32":
-    ssh_tunnel = paramiko_tunnel
-else:
-    ssh_tunnel = openssh_tunnel
-
-
+ssh_tunnel = paramiko_tunnel if sys.platform == "win32" else openssh_tunnel
 __all__ = [
     "tunnel_connection",
     "ssh_tunnel",

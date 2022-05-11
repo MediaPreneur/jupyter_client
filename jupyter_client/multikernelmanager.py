@@ -83,8 +83,7 @@ class MultiKernelManager(LoggingConfigurable):
                     # recreate context if closed
                     self.context = self._context_default()
                 kwargs.setdefault("context", self.context)
-            km = kernel_manager_ctor(*args, **kwargs)
-            return km
+            return kernel_manager_ctor(*args, **kwargs)
 
         return create_kernel_manager
 
@@ -144,7 +143,7 @@ class MultiKernelManager(LoggingConfigurable):
         # kwargs should be mutable, passing it as a dict argument.
         kernel_id = kwargs.pop("kernel_id", self.new_kernel_id(**kwargs))
         if kernel_id in self:
-            raise DuplicateKernelError("Kernel already exists: %s" % kernel_id)
+            raise DuplicateKernelError(f"Kernel already exists: {kernel_id}")
 
         if kernel_name is None:
             kernel_name = self.default_kernel_name
@@ -155,12 +154,15 @@ class MultiKernelManager(LoggingConfigurable):
         if self.kernel_spec_manager:
             constructor_kwargs["kernel_spec_manager"] = self.kernel_spec_manager
         km = self.kernel_manager_factory(
-            connection_file=os.path.join(self.connection_dir, "kernel-%s.json" % kernel_id),
+            connection_file=os.path.join(
+                self.connection_dir, f"kernel-{kernel_id}.json"
+            ),
             parent=self,
             log=self.log,
             kernel_name=kernel_name,
             **constructor_kwargs,
         )
+
         return km, kernel_name, kernel_id
 
     async def _add_kernel_when_ready(
@@ -255,7 +257,7 @@ class MultiKernelManager(LoggingConfigurable):
         restart : bool
             Will the kernel be restarted?
         """
-        self.log.info("Kernel shutdown: %s" % kernel_id)
+        self.log.info(f"Kernel shutdown: {kernel_id}")
         # If we're using pending kernels, block shutdown when a kernel is pending.
         if self._using_pending_kernels() and kernel_id in self._pending_kernels:
             raise RuntimeError("Kernel is in a pending state. Cannot shutdown.")
@@ -298,7 +300,7 @@ class MultiKernelManager(LoggingConfigurable):
         pollinterval: t.Optional[float] = 0.1,
     ) -> None:
         """Wait for a kernel to finish shutting down, and kill it if it doesn't"""
-        self.log.info("Kernel shutdown: %s" % kernel_id)
+        self.log.info(f"Kernel shutdown: {kernel_id}")
 
     @kernel_method
     def cleanup_resources(self, kernel_id: str, restart: bool = False) -> None:
@@ -340,7 +342,7 @@ class MultiKernelManager(LoggingConfigurable):
         if not kernel.ready.done():
             raise RuntimeError("Kernel is in a pending state. Cannot interrupt.")
         out = kernel.interrupt_kernel()
-        self.log.info("Kernel interrupted: %s" % kernel_id)
+        self.log.info(f"Kernel interrupted: {kernel_id}")
         return out
 
     @kernel_method
@@ -357,7 +359,7 @@ class MultiKernelManager(LoggingConfigurable):
         signum : int
             Signal number to send kernel.
         """
-        self.log.info("Signaled Kernel %s with %s" % (kernel_id, signum))
+        self.log.info(f"Signaled Kernel {kernel_id} with {signum}")
 
     async def _async_restart_kernel(self, kernel_id: str, now: bool = False) -> None:
         """Restart a kernel by its uuid, keeping the same ports.
@@ -375,11 +377,10 @@ class MultiKernelManager(LoggingConfigurable):
             it is given a chance to perform a clean shutdown or not.
         """
         kernel = self.get_kernel(kernel_id)
-        if self._using_pending_kernels():
-            if not kernel.ready.done():
-                raise RuntimeError("Kernel is in a pending state. Cannot restart.")
+        if self._using_pending_kernels() and not kernel.ready.done():
+            raise RuntimeError("Kernel is in a pending state. Cannot restart.")
         out = await ensure_async(kernel.restart_kernel(now=now))
-        self.log.info("Kernel restarted: %s" % kernel_id)
+        self.log.info(f"Kernel restarted: {kernel_id}")
         return out
 
     restart_kernel = run_sync(_async_restart_kernel)
@@ -400,7 +401,7 @@ class MultiKernelManager(LoggingConfigurable):
     def _check_kernel_id(self, kernel_id: str) -> None:
         """check that a kernel id is valid"""
         if kernel_id not in self:
-            raise KeyError("Kernel with id not found: %s" % kernel_id)
+            raise KeyError(f"Kernel with id not found: {kernel_id}")
 
     def get_kernel(self, kernel_id: str) -> KernelManager:
         """Get the single KernelManager object for a kernel by its uuid.

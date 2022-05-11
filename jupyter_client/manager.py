@@ -231,16 +231,15 @@ class KernelManager(ConnectionFileMixin):
     def client(self, **kwargs) -> KernelClient:
         """Create a client configured to connect to our kernel"""
         kw = {}
-        kw.update(self.get_connection_info(session=True))
-        kw.update(
-            dict(
-                connection_file=self.connection_file,
-                parent=self,
-            )
+        kw |= self.get_connection_info(session=True)
+        kw |= dict(
+            connection_file=self.connection_file,
+            parent=self,
         )
 
+
         # add kwargs last, for manual overrides
-        kw.update(kwargs)
+        kw |= kwargs
         return self.client_factory(**kw)
 
     # --------------------------------------------------------------------------
@@ -559,7 +558,6 @@ class KernelManager(ConnectionFileMixin):
             except asyncio.TimeoutError:
                 # Wait timed out, just log warning but continue - not much more we can do.
                 self.log.warning("Wait for final termination of kernel timed out - continuing...")
-                pass
             else:
                 # Process is no longer alive, wait and clear
                 if self.has_kernel:
@@ -573,18 +571,17 @@ class KernelManager(ConnectionFileMixin):
         Unlike ``signal_kernel``, this operation is well supported on all
         platforms.
         """
-        if self.has_kernel:
-            assert self.kernel_spec is not None
-            interrupt_mode = self.kernel_spec.interrupt_mode
-            if interrupt_mode == "signal":
-                await ensure_async(self.signal_kernel(signal.SIGINT))
-
-            elif interrupt_mode == "message":
-                msg = self.session.msg("interrupt_request", content={})
-                self._connect_control_socket()
-                self.session.send(self._control_socket, msg)
-        else:
+        if not self.has_kernel:
             raise RuntimeError("Cannot interrupt kernel. No kernel is running!")
+        assert self.kernel_spec is not None
+        interrupt_mode = self.kernel_spec.interrupt_mode
+        if interrupt_mode == "signal":
+            await ensure_async(self.signal_kernel(signal.SIGINT))
+
+        elif interrupt_mode == "message":
+            msg = self.session.msg("interrupt_request", content={})
+            self._connect_control_socket()
+            self.session.send(self._control_socket, msg)
 
     interrupt_kernel = run_sync(_async_interrupt_kernel)
 

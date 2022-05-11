@@ -34,7 +34,7 @@ class KernelApp(JupyterApp):
     def initialize(self, argv=None):
         super().initialize(argv)
 
-        cf_basename = "kernel-%s.json" % uuid.uuid4()
+        cf_basename = f"kernel-{uuid.uuid4()}.json"
         self.config.setdefault("KernelManager", {}).setdefault(
             "connection_file", os.path.join(self.runtime_dir, cf_basename)
         )

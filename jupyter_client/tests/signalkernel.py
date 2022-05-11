@@ -58,7 +58,7 @@ class SignalTestKernel(Kernel):
             reply["status"] = "error"
             reply["ename"] = "Error"
             reply["evalue"] = code
-            reply["traceback"] = ["no such command: %s" % code]
+            reply["traceback"] = [f"no such command: {code}"]
         return reply
 
 

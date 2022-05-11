@@ -48,14 +48,12 @@ class TestKernelManager(TestCase):
     @staticmethod
     def _get_tcp_km():
         c = Config()
-        km = MultiKernelManager(config=c)
-        return km
+        return MultiKernelManager(config=c)
 
     @staticmethod
     def _get_tcp_km_sub():
         c = Config()
-        km = SyncMKMSubclass(config=c)
-        return km
+        return SyncMKMSubclass(config=c)
 
     # static so picklable for multiprocessing on Windows
     @staticmethod
@@ -63,8 +61,7 @@ class TestKernelManager(TestCase):
         c = Config()
         c.KernelManager.transport = "ipc"
         c.KernelManager.ip = "test"
-        km = MultiKernelManager(config=c)
-        return km
+        return MultiKernelManager(config=c)
 
     # static so picklable for multiprocessing on Windows
     @staticmethod
@@ -78,7 +75,7 @@ class TestKernelManager(TestCase):
         assert km.get_kernel(kid).ready.done()
         assert kid in km
         assert kid in km.list_kernel_ids()
-        assert len(km) == 1, f"{len(km)} != {1}"
+        assert len(km) == 1, f"{len(km)} != 1"
         km.restart_kernel(kid, now=True)
         assert km.is_alive(kid)
         assert kid in km.list_kernel_ids()
@@ -194,7 +191,7 @@ class TestKernelManager(TestCase):
         assert km.is_alive(kid)
         assert kid in km
         assert kid in km.list_kernel_ids()
-        assert len(km) == 1, f"{len(km)} != {1}"
+        assert len(km) == 1, f"{len(km)} != 1"
 
         km.get_kernel(kid).reset_counts()
         km.reset_counts()
@@ -247,14 +244,12 @@ class TestAsyncKernelManager(AsyncTestCase):
     @staticmethod
     def _get_tcp_km():
         c = Config()
-        km = AsyncMultiKernelManager(config=c)
-        return km
+        return AsyncMultiKernelManager(config=c)
 
     @staticmethod
     def _get_tcp_km_sub():
         c = Config()
-        km = AsyncMKMSubclass(config=c)
-        return km
+        return AsyncMKMSubclass(config=c)
 
     # static so picklable for multiprocessing on Windows
     @staticmethod
@@ -262,15 +257,13 @@ class TestAsyncKernelManager(AsyncTestCase):
         c = Config()
         c.KernelManager.transport = "ipc"
         c.KernelManager.ip = "test"
-        km = AsyncMultiKernelManager(config=c)
-        return km
+        return AsyncMultiKernelManager(config=c)
 
     @staticmethod
     def _get_pending_kernels_km():
         c = Config()
         c.AsyncMultiKernelManager.use_pending_kernels = True
-        km = AsyncMultiKernelManager(config=c)
-        return km
+        return AsyncMultiKernelManager(config=c)
 
     # static so picklable for multiprocessing on Windows
     @staticmethod
@@ -283,7 +276,7 @@ class TestAsyncKernelManager(AsyncTestCase):
         assert await km.is_alive(kid)
         assert kid in km
         assert kid in km.list_kernel_ids()
-        assert len(km) == 1, f"{len(km)} != {1}"
+        assert len(km) == 1, f"{len(km)} != 1"
         await km.restart_kernel(kid, now=True)
         assert await km.is_alive(kid)
         assert kid in km.list_kernel_ids()
@@ -371,7 +364,7 @@ class TestAsyncKernelManager(AsyncTestCase):
         assert not kernel.ready.done()
         assert kid in km
         assert kid in km.list_kernel_ids()
-        assert len(km) == 1, f"{len(km)} != {1}"
+        assert len(km) == 1, f"{len(km)} != 1"
         # Wait for the kernel to start.
         await kernel.ready
         await km.restart_kernel(kid, now=True)
@@ -522,7 +515,7 @@ class TestAsyncKernelManager(AsyncTestCase):
         assert await mkm.is_alive(kid)
         assert kid in mkm
         assert kid in mkm.list_kernel_ids()
-        assert len(mkm) == 1, f"{len(mkm)} != {1}"
+        assert len(mkm) == 1, f"{len(mkm)} != 1"
 
         mkm.get_kernel(kid).reset_counts()
         mkm.reset_counts()

@@ -54,11 +54,14 @@ class ListKernelSpecs(JupyterApp):
             def path_key(item):
                 """sort key function for Jupyter path priority"""
                 path = item[1]
-                for idx, prefix in enumerate(self.jupyter_path):
-                    if path.startswith(prefix):
-                        return (idx, path)
-                # not in jupyter path, artificially added to the front
-                return (-1, path)
+                return next(
+                    (
+                        (idx, path)
+                        for idx, prefix in enumerate(self.jupyter_path)
+                        if path.startswith(prefix)
+                    ),
+                    (-1, path),
+                )
 
             print("Available kernels:")
             for kernelname, path in sorted(paths.items(), key=path_key):
@@ -160,10 +163,7 @@ class InstallKernelSpec(JupyterApp):
                     )
                 self.exit(1)
             elif e.errno == errno.EEXIST:
-                print(
-                    "A kernel spec is already present at %s" % e.filename,
-                    file=sys.stderr,
-                )
+                print(f"A kernel spec is already present at {e.filename}", file=sys.stderr)
                 self.exit(1)
             raise
 
@@ -197,8 +197,7 @@ class RemoveKernelSpec(JupyterApp):
     def start(self):
         self.kernel_spec_manager.ensure_native_kernel = False
         spec_paths = self.kernel_spec_manager.find_kernel_specs()
-        missing = set(self.spec_names).difference(set(spec_paths))
-        if missing:
+        if missing := set(self.spec_names).difference(set(spec_paths)):
             self.exit("Couldn't find kernel spec(s): %s" % ", ".join(missing))
 
         if not (self.force or self.answer_yes):
@@ -213,12 +212,11 @@ class RemoveKernelSpec(JupyterApp):
             try:
                 path = self.kernel_spec_manager.remove_kernel_spec(kernel_name)
             except OSError as e:
-                if e.errno == errno.EACCES:
-                    print(e, file=sys.stderr)
-                    print("Perhaps you want sudo?", file=sys.stderr)
-                    self.exit(1)
-                else:
+                if e.errno != errno.EACCES:
                     raise
+                print(e, file=sys.stderr)
+                print("Perhaps you want sudo?", file=sys.stderr)
+                self.exit(1)
             self.log.info("Removed %s", path)
 
 
@@ -313,14 +311,16 @@ class KernelSpecApp(Application):
     flags = {}
 
     def start(self):
-        if self.subapp is None:
-            print("No subcommand specified. Must specify one of: %s" % list(self.subcommands))
-            print()
-            self.print_description()
-            self.print_subcommands()
-            self.exit(1)
-        else:
+        if self.subapp is not None:
             return self.subapp.start()
+        print(
+            f"No subcommand specified. Must specify one of: {list(self.subcommands)}"
+        )
+
+        print()
+        self.print_description()
+        self.print_subcommands()
+        self.exit(1)
 
 
 if __name__ == "__main__":
